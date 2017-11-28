@@ -1,6 +1,7 @@
 import click
+import urllib2
+import json
 from extractor.spider import Spider
-
 @click.command()
 @click.option('--course', prompt='Course ID', help='Course ID (e.g. `firebase-react`)')
 @click.option('--id', prompt='Username', help='Frontend Master Username')

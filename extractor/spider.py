@@ -11,6 +11,9 @@ import mechanize
 import os
 import time
 
+import urllib2
+import json
+
 # Constants
 DATA_COURSE_LIST              = './DATA_COURSE_LIST.json'
 DATA_COURSE_DETAILED_LIST_CDN = './DATA_COURSE_DETAILED_LIST_CDN.json'
@@ -31,13 +34,21 @@ class Spider(object):
         username_field.send_keys(id)
         password_field.send_keys(password)
         password_field.send_keys(Keys.RETURN)
+        
 
     def download(self, course):
         # Get detailed course list
+        #response = urllib2.urlopen()
+        self.browser.get('https://api.frontendmasters.com/v1/kabuki/courses/'+course)
+        self.browser.implicitly_wait(2)
+        soup_page = BeautifulSoup(self.browser.page_source, 'html.parser')
+        response = soup_page.find('pre').getText()
+        data = json.loads(response)
+        lessonData = data['lessonData']
         course_detailed_list = self._get_detailed_course_list(course)
 
         # Get downloadable CDN
-        course_downloadbale = self._get_downloadable_links(course_detailed_list)
+        course_downloadbale = self._get_downloadable_links(course_detailed_list,lessonData)
 
 
 
@@ -118,7 +129,7 @@ class Spider(object):
 
         return subsections
 
-    def _get_downloadable_links(self, course):
+    def _get_downloadable_links(self, course,lessonData):
         # course data structure
         # {
         #     'title': course,
@@ -144,6 +155,16 @@ class Spider(object):
                     url_str = self._get_video_source()
                     print("Video URL: {0}".format(url_str))
                     subsection['downloadable_url'] = url_str
+
+                    current_url = self.browser.current_url
+                    urla = current_url.rsplit('/', 1)[0]
+                    urla = urla.rsplit('/', 1)[-1]
+                    subsection['downloadable_sub'] = None
+                    for subr in lessonData:
+                        if subr['slug'] == urla:
+                            subsection['downloadable_sub'] = 'https://api.frontendmasters.com/v1/kabuki/transcripts/'+subr['statsId']+'.vtt'
+                            print subsection['downloadable_sub']
+                    # 
 
         return course
 
@@ -174,8 +195,11 @@ class Spider(object):
 
                 filename = str(i1) + '-' + str(i2) + '-' + format_filename(
                     section_title) + '-' + format_filename(
-                        subsection_title) + '.mp4'
+                        subsection_title)
+                filename_mp4 = filename + '.mp4'
+                filename_sub = filename + '.vtt'
+                file_path_mp4 = course_path + '/' + format_filename(filename_mp4)
+                file_path_sub = course_path + '/' + format_filename(filename_sub)
 
-                file_path = course_path + '/' + format_filename(filename)
-
-                download_file(subsection['downloadable_url'], file_path, self)
+                download_file(subsection['downloadable_url'], file_path_mp4, self)
+                download_file(subsection['downloadable_sub'], file_path_sub, self)
